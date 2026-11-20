@@ -2,6 +2,7 @@ package leeds.teacher.attendance
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -124,8 +125,29 @@ class MainActivity : Activity() {
             .putExtra("api", p[0]).putExtra("k", p[1]).putExtra("dev", p[2])
             .putExtra("cookie", p[3]).putExtra("ua", p[4])
         startForegroundService(i)
+        askBg()
+    }
 
-        // Battery optimization: sirf ek dafa poochein
+    // "Allow all the time" - taake app band hone par bhi location chalti rahe
+    private fun askBg() {
+        val sp = getSharedPreferences("app", 0)
+        if (Build.VERSION.SDK_INT >= 29 &&
+            checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            !sp.getBoolean("bgAsked", false)
+        ) {
+            sp.edit().putBoolean("bgAsked", true).apply()
+            AlertDialog.Builder(this)
+                .setMessage("Agli screen par Location ke liye 'Allow all the time' (Hamesha allow) chunein, taake app band hone par bhi attendance tracking chalti rahe.")
+                .setPositiveButton("Theek hai") { _, _ ->
+                    requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 3)
+                }
+                .setCancelable(false)
+                .show()
+        } else askBattery()
+    }
+
+    // Battery optimization: sirf ek dafa poochein
+    private fun askBattery() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         val sp = getSharedPreferences("app", 0)
         if (!pm.isIgnoringBatteryOptimizations(packageName) && !sp.getBoolean("batAsked", false)) {
@@ -147,6 +169,7 @@ class MainActivity : Activity() {
             it.invoke(geoOrigin, hasLoc(), false)
             geoCb = null
         }
+        if (requestCode == 3) askBattery()
         if (requestCode == 2) {
             if (hasLoc()) launchService()
             else {
